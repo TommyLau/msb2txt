@@ -114,6 +114,18 @@ The script recognizes the following command codes in the MSB files:
 - 0x21: PlayerGivenName - Replaced with the player's given name from name.txt
 - 0xFF: StringEnd - Marks the end of a string
 
+## File Search Behavior
+
+The script searches for required files (font and name files) in the following order:
+1. Script directory (where msb2txt.py is located)
+2. Current working directory
+
+This applies to:
+- Font files (`font_ftv1_2.txt` for FTV1/FTV2, `font_gl.txt` for FTCM)
+- Player name file (`name.txt`)
+
+If a file is not found in either location, appropriate error messages or fallbacks will be used.
+
 ## Thanks to
 
 This project was made possible thanks to the following open source projects and their documentation on the Mages engine file formats:

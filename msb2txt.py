@@ -15,19 +15,38 @@ def get_script_dir():
     """Get the directory where the script is located."""
     return os.path.dirname(os.path.abspath(__file__))
 
-def find_font_file(font_name):
-    """Find font file in script directory first, then current directory."""
+def find_file(filename, file_type="file"):
+    """Find file in script directory first, then current directory.
+    
+    Args:
+        filename: Name of the file to find
+        file_type: Type of file for error message (e.g., "font", "name")
+    
+    Returns:
+        str: Full path to the found file
+        
+    Raises:
+        FileNotFoundError: If file is not found in either location
+    """
     # Try script directory first
     script_dir = get_script_dir()
-    script_font_path = os.path.join(script_dir, font_name)
-    if os.path.isfile(script_font_path):
-        return script_font_path
+    script_path = os.path.join(script_dir, filename)
+    if os.path.isfile(script_path):
+        return script_path
     
     # Try current directory
-    if os.path.isfile(font_name):
-        return font_name
+    if os.path.isfile(filename):
+        return filename
         
-    raise FileNotFoundError(f"Font file '{font_name}' not found in script directory ({script_dir}) or current directory")
+    raise FileNotFoundError(f"{file_type.capitalize()} file '{filename}' not found in script directory ({script_dir}) or current directory")
+
+def find_font_file(font_name):
+    """Find font file in script directory first, then current directory."""
+    return find_file(font_name, "font")
+
+def find_name_file(name_file):
+    """Find name file in script directory first, then current directory."""
+    return find_file(name_file, "name")
 
 def print_banner():
     """Print a friendly banner with usage information."""
@@ -80,7 +99,9 @@ def read_font_data(filename):
 def read_player_name(filename="name.txt"):
     """Read player name from file and split into surname and given name."""
     try:
-        with open(filename, 'r', encoding='utf-8') as file:
+        # Find the name file
+        name_path = find_name_file(filename)
+        with open(name_path, 'r', encoding='utf-8') as file:
             line = file.readline().strip()
             parts = line.split(" ", 1)
             surname = parts[0] if len(parts) > 0 else ""
@@ -284,7 +305,7 @@ class MsbParser:
         try:
             with open(output_file, 'w', encoding='utf-8') as file:
                 file.write(f"# Extracted by msb2txt\n")
-                file.write(f"# Copyright (c) 2025 Tommy Lau <tommy.lhg@gmail.com>\n")
+                file.write(f"# Copyright (c) 2025 Tommy Lau\n")
                 file.write(f"# Player name: {self.player_surname} {self.player_given_name}\n\n")
                 
                 for s in self.strings:
@@ -318,7 +339,7 @@ Game Compatibility:
   FTV2 (default): Famicom Tantei Club: The Girl Who Stands Behind (uses font_ftv1_2.txt)
   FTCM:           Famicom Tantei Club: Emio – The Smiling Man (uses font_gl.txt)
 
-Note: The font file will be searched for in the script directory first, then the current directory.
+Note: Font and name files will be searched for in the script directory first, then the current directory.
 Font files are automatically selected based on game mode unless overridden with -f/--font.
 
 Copyright (c) 2025 Tommy Lau <tommy.lhg@gmail.com>
