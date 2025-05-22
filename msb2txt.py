@@ -110,6 +110,8 @@ class MsbParser:
         0x21: "PlayerGivenName",
         0xFF: "StringEnd"
     }
+
+    MSB_SIGNATURE = b'MES\0'
     
     def __init__(self, filename, font_data, name_file="name.txt"):
         self.filename = filename
@@ -121,9 +123,35 @@ class MsbParser:
         self.text_offset = None
         self.strings = []
         self.current_string = ""
+        self.entries = []  # List of (index, offset) tuples
         # Read player name
         self.player_surname, self.player_given_name = read_player_name(name_file)
         print(f"Player name: {self.player_surname} {self.player_given_name}")
+
+    def read_header(self):
+        """Read and verify MSB header structure."""
+        # Read and verify magic
+        self.magic = self.raw_data[:4]
+        if self.magic != self.MSB_SIGNATURE:
+            raise ValueError(f"Invalid MSB file: Expected magic {self.MSB_SIGNATURE!r}, got {self.magic!r}")
+
+        # Read version and count
+        self.version = struct.unpack('<i', self.raw_data[4:8])[0]
+        self.count = struct.unpack('<i', self.raw_data[8:12])[0]
+        self.text_offset = struct.unpack('<i', self.raw_data[12:16])[0]
+
+        # Read entry table
+        entry_start = 16  # After main header
+        for i in range(self.count):
+            pos = entry_start + (i * 8)  # Each entry is 8 bytes (2 * int32)
+            index, offset = struct.unpack('<ii', self.raw_data[pos:pos + 8])
+            self.entries.append((index, offset))
+            
+        print(f"File: {self.filename}")
+        print(f"Magic: {self.magic!r}")
+        print(f"Version: {self.version}")
+        print(f"String Count: {self.count}")
+        print(f"Text Offset: {self.text_offset}")
         
     def parse(self):
         """Parse the MSB file."""
@@ -131,17 +159,8 @@ class MsbParser:
             with open(self.filename, 'rb') as file:
                 self.raw_data = file.read()
                 
-            # Parse header (magic, version, count, text_offset)
-            self.magic = self.raw_data[:4].decode('ascii', errors='ignore')
-            self.version = struct.unpack('<i', self.raw_data[4:8])[0]
-            self.count = struct.unpack('<i', self.raw_data[8:12])[0]
-            self.text_offset = struct.unpack('<i', self.raw_data[12:16])[0]
-            
-            print(f"File: {self.filename}")
-            print(f"Magic: {self.magic}")
-            print(f"Version: {self.version}")
-            print(f"String Count: {self.count}")
-            print(f"Text Offset: {self.text_offset}")
+            # Parse header structure
+            self.read_header()
             
             # Seek to text_offset and parse the data from there
             self.parse_text_data()
@@ -153,76 +172,67 @@ class MsbParser:
             return False
     
     def parse_text_data(self):
-        """Parse the text data starting from text_offset."""
-        data = self.raw_data[self.text_offset:]
-        i = 0
-        
-        self.current_string = ""
-        
-        while i < len(data):
-            # Get the current byte
-            current_byte = data[i]
+        """Parse the text data using the entries table."""
+        for entry_idx, (index, offset) in enumerate(self.entries):
+            # Reset current string for each entry
+            current_string = ""
             
-            # Check if it's a character (high bit set)
-            if current_byte >= 0x80 and current_byte != 0xFF:
-                # Characters are stored as 16-bit big-endian values
-                if i + 1 < len(data):
-                    # Read the next byte
-                    next_byte = data[i + 1]
-                    
-                    # Combine into a 16-bit value (big-endian)
-                    char_code = (current_byte << 8) | next_byte
-                    
-                    # Convert to character using font data
-                    char, success = hex_to_char(format(char_code, '04x'), self.font_data)
-                    if success:
-                        self.current_string += char
+            # Calculate the length of text to read
+            i = self.text_offset + offset
+            
+            while i < len(self.raw_data):
+                # Get the current byte
+                current_byte = self.raw_data[i]
+                
+                # Check if it's a character (high bit set)
+                if current_byte >= 0x80 and current_byte != 0xFF:
+                    # Characters are stored as 16-bit big-endian values
+                    if i + 1 < len(self.raw_data):
+                        # Read the next byte
+                        next_byte = self.raw_data[i + 1]
+                        
+                        # Combine into a 16-bit value (big-endian)
+                        char_code = (current_byte << 8) | next_byte
+                        
+                        # Convert to character using font data
+                        char, success = hex_to_char(format(char_code, '04x'), self.font_data)
+                        if success:
+                            current_string += char
+                        else:
+                            # If character conversion failed, add the hex code and show more context
+                            print(f"Failed to convert character at entry {entry_idx}, offset {offset + i}: {char_code:04X}")
+                            print(f"Following 10 bytes: {' '.join([f'{b:02X}' for b in self.raw_data[i:i+10]])}")
+                            current_string += f"[{char_code:04X}]"
+                        
+                        # Move forward 2 bytes
+                        i += 2
                     else:
-                        # If character conversion failed, add the hex code and show more context
-                        print(f"Failed to convert character at offset {i}: {char_code:04X}")
-                        print(f"Following 10 bytes: {' '.join([f'{b:02X}' for b in data[i:i+10]])}")
-                        self.current_string += f"[{char_code:04X}]"
-                    
-                    # Move forward 2 bytes
-                    i += 2
+                        # Handle case where we're at the end of the entry
+                        current_string += f"[{current_byte:02X}]"
+                        i += 1
                 else:
-                    # Handle case where we're at the end of the file
-                    self.current_string += f"[{current_byte:02X}]"
-                    i += 1
-            else:
-                # It's a command byte
-                if current_byte == 0xFF:
-                    # Save the current string and start a new one
-                    if self.current_string:
-                        self.strings.append(self.current_string)
-                        self.current_string = ""
-                    
-                    i += 1
-                elif current_byte == 0x20:
-                    # Player surname
-                    self.current_string += self.player_surname
-                    i += 1
-                elif current_byte == 0x21:
-                    # Player given name
-                    self.current_string += self.player_given_name
-                    i += 1
-                else:
-                    # Regular command
-                    cmd_name = self.COMMAND_CODES.get(current_byte, f"Cmd{current_byte:02X}")
-                    self.current_string += f"[{cmd_name}]"
-                    
-                    # Special handling for specific commands
-                    if current_byte == 0x01:  # CharacterName
-                        # This often indicates a new dialogue entry
-                        if self.current_string and len(self.current_string) > len(f"[{cmd_name}]"):
-                            self.strings.append(self.current_string)
-                            self.current_string = f"[{cmd_name}]"
-                    
-                    i += 1
-        
-        # Add the last string if there is one
-        if self.current_string:
-            self.strings.append(self.current_string)
+                    # It's a command byte
+                    if current_byte == 0xFF:
+                        # End of string marker, break the loop
+                        break
+                    elif current_byte == 0x20:
+                        # Player surname
+                        current_string += self.player_surname
+                        i += 1
+                    elif current_byte == 0x21:
+                        # Player given name
+                        current_string += self.player_given_name
+                        i += 1
+                    else:
+                        # Regular command
+                        cmd_name = self.COMMAND_CODES.get(current_byte, f"Cmd{current_byte:02X}")
+                        current_string += f"[{cmd_name}]"
+                        i += 1
+            
+            # Add the entry's string if there is one
+            if current_string:
+                # Add entry index to the string for better tracking
+                self.strings.append(f"[{index}] {current_string}")
     
     def save_txt(self, output_file=None):
         """Save decoded strings to a text file."""
@@ -235,8 +245,8 @@ class MsbParser:
                 file.write(f"# Copyright (c) 2025 Tommy Lau <tommy.lhg@gmail.com>\n")
                 file.write(f"# Player name: {self.player_surname} {self.player_given_name}\n\n")
                 
-                for i, string in enumerate(self.strings):
-                    file.write(f"[{i}] {string}\n")
+                for s in self.strings:
+                    file.write(f"{s}\n")
                     
             print(f"Decoded text saved to {output_file}")
             return True
