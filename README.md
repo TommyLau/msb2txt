@@ -70,6 +70,14 @@ The script recognizes the following command codes in the MSB files:
 - 0x21: PlayerGivenName - Replaced with the player's given name from name.txt
 - 0xFF: StringEnd - Marks the end of a string
 
+## Thanks to
+
+This project was made possible thanks to the following open source projects and their documentation on the Mages engine file formats:
+
+- [wetor/MagesTools](https://github.com/wetor/MagesTools/tree/master) - Go implementation of tools for the Mages engine
+- [CommitteeOfZero/sc3tools](https://github.com/CommitteeOfZero/sc3tools/tree/main) - Tools for working with SC3 script files
+- [CommitteeOfZero/SciAdv.Net](https://github.com/CommitteeOfZero/SciAdv.Net/tree/master) - .NET library for Science Adventure series games
+
 ## Note
 
 This tool is for educational and research purposes. All game assets and character data belong to their respective owners (Nintendo).
