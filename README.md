@@ -1,17 +1,27 @@
-# msb2txt
+# Mages Engine Tools
 
-A tool for extracting and converting text data from MSB files from Mages engine games, with specific support for the "Famicom Detective Club" game from Nintendo Switch.
+A collection of tools for extracting and converting data from Mages engine games, with specific support for the Famicom Tantei Club (Detective Club) series.
 
 ## Tools
 
 ### 1. MSB Text Extractor (msb2txt.py)
 
-A Python script that parses MSB files and extracts the text content using the game's character set.
+A Python script that parses MSB files and extracts the text content using the game's character set. Supports both 16-bit and 32-bit character encoding formats.
+
+#### Supported Games
+
+- **FTV1**: Famicom Tantei Club: The Missing Heir (16-bit encoding)
+- **FTV2**: Famicom Tantei Club: The Girl Who Stands Behind (16-bit encoding)
+- **FTCM**: Famicom Tantei Club: Emio – The Smiling Man (32-bit encoding)
 
 #### Usage
 
 ```bash
+# Default mode (16-bit for FTV1/FTV2)
 python msb2txt.py path/to/file.msb
+
+# 32-bit mode for FTCM
+python msb2txt.py --ftcm path/to/file.msb
 ```
 
 Optional arguments:
@@ -19,6 +29,7 @@ Optional arguments:
 -f, --font     Specify a custom font data file (default: font.txt)
 -o, --output   Specify a custom output file (default: same name as input with .txt extension)
 -n, --name     Specify a custom player name file (default: name.txt)
+--ftcm         Use 32-bit mode for FTCM
 ```
 
 Example:
@@ -75,14 +86,12 @@ During parsing, commands 0x20 and 0x21 will be replaced with the player's surnam
 
 ## How It Works
 
-The script extracts text from MSB files by:
-1. Reading the MSB file header to find the text offset
-2. Parsing the binary data from the text offset
-3. Interpreting bytes according to Mages engine format:
-   - Bytes ≥ 0x80 are treated as characters (16-bit big-endian values)
-   - Bytes < 0x80 are treated as commands (like character names, ruby text, etc.)
-4. Mapping character codes to actual characters using the font data (by subtracting 0x8000)
-5. Replacing player name commands with names from the name.txt file
+The MSB extractor works by:
+1. Reading the MSB file header to identify file format and version
+2. Parsing the entry table to find text locations
+3. Reading character codes based on game version (16-bit or 32-bit)
+4. Converting character codes to actual text using font mapping data
+5. Handling special commands like player name substitution
 6. Outputting the extracted text to a file
 
 ## Supported Commands

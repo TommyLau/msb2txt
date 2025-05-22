@@ -71,20 +71,18 @@ def read_player_name(filename="name.txt"):
         print(f"Error reading player name: {e}")
         return "", ""
 
-def hex_to_char(hex_input, font_data):
+def hex_to_char(index, font_data):
     """Convert hex input to corresponding character in font data.
+    
+    Args:
+        index: Index to convert
+        font_data: Font character mapping data
     
     Returns:
         tuple: (character, success) where character is the converted character or error message,
                and success is a boolean indicating whether the conversion succeeded.
     """
     try:
-        # Convert hex string to integer
-        hex_value = int(hex_input, 16)
-        
-        # Subtract 0x8000 to get index
-        index = hex_value - 0x8000
-        
         # Check if index is valid
         if 0 <= index < len(font_data):
             return (font_data[index], True)
@@ -113,7 +111,7 @@ class MsbParser:
 
     MSB_SIGNATURE = b'MES\0'
     
-    def __init__(self, filename, font_data, name_file="name.txt"):
+    def __init__(self, filename, font_data, name_file="name.txt", is_32bit=False):
         self.filename = filename
         self.font_data = font_data
         self.raw_data = None
@@ -127,6 +125,7 @@ class MsbParser:
         # Read player name
         self.player_surname, self.player_given_name = read_player_name(name_file)
         print(f"Player name: {self.player_surname} {self.player_given_name}")
+        self.is_32bit = is_32bit
 
     def read_header(self):
         """Read and verify MSB header structure."""
@@ -185,31 +184,41 @@ class MsbParser:
                 current_byte = self.raw_data[i]
                 
                 # Check if it's a character (high bit set)
-                if current_byte >= 0x80 and current_byte != 0xFF:
-                    # Characters are stored as 16-bit big-endian values
-                    if i + 1 < len(self.raw_data):
-                        # Read the next byte
-                        next_byte = self.raw_data[i + 1]
-                        
-                        # Combine into a 16-bit value (big-endian)
-                        char_code = (current_byte << 8) | next_byte
-                        
-                        # Convert to character using font data
-                        char, success = hex_to_char(format(char_code, '04x'), self.font_data)
-                        if success:
-                            current_string += char
-                        else:
-                            # If character conversion failed, add the hex code and show more context
-                            print(f"Failed to convert character at entry {entry_idx}, offset {offset + i}: {char_code:04X}")
-                            print(f"Following 10 bytes: {' '.join([f'{b:02X}' for b in self.raw_data[i:i+10]])}")
-                            current_string += f"[{char_code:04X}]"
-                        
-                        # Move forward 2 bytes
-                        i += 2
+                if current_byte >= 0x80 and current_byte < 0xFF:
+                    # Handle differently based on character encoding
+                    if not self.is_32bit:
+                        # 16-bit mode (FTV1/FTV2): Read 2 bytes
+                        if i + 1 < len(self.raw_data):
+                            # Unpack 2 bytes as big-endian unsigned short (16-bit)
+                            char_code = struct.unpack('>H', self.raw_data[i:i+2])[0]
+                            
+                            # Clear highest bit for 16-bit
+                            char_code &= 0x7FFF
+                            
+                            # Move forward 2 bytes
+                            i += 2
                     else:
-                        # Handle case where we're at the end of the entry
-                        current_string += f"[{current_byte:02X}]"
-                        i += 1
+                        # 32-bit mode (FTCM): Read 4 bytes
+                        if i + 3 < len(self.raw_data):
+                            # Unpack 4 bytes as big-endian unsigned int (32-bit)
+                            char_code = struct.unpack('>I', self.raw_data[i:i+4])[0]
+                            
+                            # Clear highest bit for 32-bit
+                            char_code &= 0x7FFFFFFF
+                            print(f"char_code: {char_code}")
+
+                            # Move forward 4 bytes
+                            i += 4
+                    
+                    # Convert to character using font data
+                    char, success = hex_to_char(char_code, self.font_data)
+                    if success:
+                        current_string += char
+                    else:
+                        # If character conversion failed, add the hex code and show more context
+                        print(f"Failed to convert character at entry {entry_idx}, offset {offset + i}: {char_code:08X}")
+                        print(f"Following 10 bytes: {' '.join([f'{b:02X}' for b in self.raw_data[i:i+10]])}")
+                        current_string += f"[{char_code:08X}]"
                 else:
                     # It's a command byte
                     if current_byte == 0xFF:
@@ -266,9 +275,15 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python msb2txt.py game.msb                      # Basic usage
+  python msb2txt.py game.msb                      # Basic usage (16-bit mode)
   python msb2txt.py -o output.txt game.msb        # Specify output file
   python msb2txt.py -f custom_font.txt game.msb   # Use custom font data
+  python msb2txt.py --ftcm game.msb               # Use 32-bit mode for FTCM
+
+Game Compatibility:
+  FTV1 (default): Famicom Tantei Club: The Missing Heir
+  FTV2 (default): Famicom Tantei Club: The Girl Who Stands Behind
+  FTCM:           Famicom Tantei Club: Emio – The Smiling Man
 
 Copyright (c) 2025 Tommy Lau <tommy.lhg@gmail.com>
         """
@@ -280,6 +295,8 @@ Copyright (c) 2025 Tommy Lau <tommy.lhg@gmail.com>
                         help='Output text file (default: same as input with .txt extension)')
     parser.add_argument('-n', '--name', default='name.txt',
                         help='Player name file (default: name.txt)')
+    parser.add_argument('--ftcm', action='store_true',
+                        help='Use 32-bit mode for FTCM (Famicom Tantei Club Mobile)')
     parser.add_argument('input_file', 
                         help='Input MSB file to parse')
     
@@ -289,9 +306,10 @@ Copyright (c) 2025 Tommy Lau <tommy.lhg@gmail.com>
         # Read and process font data
         font_data = read_font_data(args.font)
         print(f"Font data loaded with {len(font_data)} characters.")
+        print(f"Game: {'FTCM (32-bit)' if args.ftcm else 'FTV1/FTV2 (16-bit)'}")
         
         # Parse MSB file
-        parser = MsbParser(args.input_file, font_data, args.name)
+        parser = MsbParser(args.input_file, font_data, args.name, is_32bit=args.ftcm)
         if parser.parse():
             parser.save_txt(args.output)
             
