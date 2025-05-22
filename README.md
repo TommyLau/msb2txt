@@ -104,6 +104,7 @@ The script recognizes the following command codes in the MSB files:
 - 0x01: CharacterName - Indicates the speaking character's name
 - 0x02: LineStart - Marks the start of a new line of text
 - 0x03: LineEnd - Marks the end of a line of text
+- 0x04: SetColor - Sets text color (format: <#RRGGBB>, where RR=Red, GG=Green, BB=Blue)
 - 0x09: RubyBase - Base text for furigana/ruby annotations
 - 0x0A: RubyTextStart - Start of ruby text
 - 0x0B: RubyTextEnd - End of ruby text
