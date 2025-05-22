@@ -55,6 +55,22 @@ def read_font_data(filename):
     
     return content
 
+def read_player_name(filename="name.txt"):
+    """Read player name from file and split into surname and given name."""
+    try:
+        with open(filename, 'r', encoding='utf-8') as file:
+            line = file.readline().strip()
+            parts = line.split(" ", 1)
+            surname = parts[0] if len(parts) > 0 else ""
+            given_name = parts[1] if len(parts) > 1 else ""
+            return surname, given_name
+    except FileNotFoundError:
+        print(f"Warning: {filename} not found, using empty names")
+        return "", ""
+    except Exception as e:
+        print(f"Error reading player name: {e}")
+        return "", ""
+
 def hex_to_char(hex_input, font_data):
     """Convert hex input to corresponding character in font data."""
     try:
@@ -82,10 +98,12 @@ class MsbParser:
         0x09: "RubyBase",
         0x0A: "RubyTextStart",
         0x0B: "RubyTextEnd",
+        0x20: "PlayerSurname",
+        0x21: "PlayerGivenName",
         0x03FF: "End"
     }
     
-    def __init__(self, filename, font_data):
+    def __init__(self, filename, font_data, name_file="name.txt"):
         self.filename = filename
         self.font_data = font_data
         self.raw_data = None
@@ -95,6 +113,9 @@ class MsbParser:
         self.text_offset = None
         self.strings = []
         self.current_string = ""
+        # Read player name
+        self.player_surname, self.player_given_name = read_player_name(name_file)
+        print(f"Player name: {self.player_surname} {self.player_given_name}")
         
     def parse(self):
         """Parse the MSB file."""
@@ -166,6 +187,14 @@ class MsbParser:
                         self.current_string = ""
                     
                     i += 2
+                elif current_byte == 0x20:
+                    # Player surname
+                    self.current_string += self.player_surname
+                    i += 1
+                elif current_byte == 0x21:
+                    # Player given name
+                    self.current_string += self.player_given_name
+                    i += 1
                 else:
                     # Regular command
                     cmd_name = self.COMMAND_CODES.get(current_byte, f"Cmd{current_byte:02X}")
@@ -192,7 +221,8 @@ class MsbParser:
         try:
             with open(output_file, 'w', encoding='utf-8') as file:
                 file.write(f"# Extracted by msb2txt\n")
-                file.write(f"# Copyright (c) 2025 Tommy Lau <tommy.lhg@gmail.com>\n\n")
+                file.write(f"# Copyright (c) 2025 Tommy Lau <tommy.lhg@gmail.com>\n")
+                file.write(f"# Player name: {self.player_surname} {self.player_given_name}\n\n")
                 
                 for i, string in enumerate(self.strings):
                     file.write(f"[{i}] {string}\n")
@@ -227,6 +257,8 @@ Copyright (c) 2025 Tommy Lau <tommy.lhg@gmail.com>
                         help='Font data file (default: font.txt)')
     parser.add_argument('-o', '--output', 
                         help='Output text file (default: same as input with .txt extension)')
+    parser.add_argument('-n', '--name', default='name.txt',
+                        help='Player name file (default: name.txt)')
     parser.add_argument('input_file', 
                         help='Input MSB file to parse')
     
@@ -238,7 +270,7 @@ Copyright (c) 2025 Tommy Lau <tommy.lhg@gmail.com>
         print(f"Font data loaded with {len(font_data)} characters.")
         
         # Parse MSB file
-        parser = MsbParser(args.input_file, font_data)
+        parser = MsbParser(args.input_file, font_data, args.name)
         if parser.parse():
             parser.save_txt(args.output)
             
