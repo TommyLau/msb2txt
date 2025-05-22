@@ -1,4 +1,42 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+#
+# MSB2TXT - Mages Engine MSB Text Extractor
+# Copyright (c) 2025 Tommy Lau <tommy.lhg@gmail.com>
+# All rights reserved.
+#
+
+import argparse
+import struct
+import os
+import sys
+
+def print_banner():
+    """Print a friendly banner with usage information."""
+    banner = """
+    ╔═══════════════════════════════════════════════════════════════╗
+    ║                                                               ║
+    ║  MSB2TXT - Mages Engine MSB Text Extractor                    ║
+    ║                                                               ║
+    ║  Extract text from Mages Engine MSB files                     ║
+    ║  Supports Famicom Detective Club and other Mages games        ║
+    ║                                                               ║
+    ╚═══════════════════════════════════════════════════════════════╝
+
+    Basic Usage:
+      python msb2txt.py path/to/file.msb
+    
+    Options:
+      -f, --font FILE    Specify a custom font data file (default: font.txt)
+      -o, --output FILE  Specify output file (default: same as input with .txt)
+      -h, --help         Show this help message and exit
+    
+    Example:
+      python msb2txt.py -f custom_font.txt -o dialog.txt game.msb
+      
+    Copyright (c) 2025 Tommy Lau <tommy.lhg@gmail.com>
+    """
+    print(banner)
 
 def read_font_data(filename):
     """Read font data from file and process it by removing newlines and spaces."""
@@ -34,51 +72,184 @@ def hex_to_char(hex_input, font_data):
     except ValueError:
         return "Error: Invalid hexadecimal input"
 
+class MsbParser:
+    """Parser for MSB files from Mages engine."""
+    
+    # Define command codes
+    COMMAND_CODES = {
+        0x01: "CharacterName",
+        0x02: "DialogueLine",
+        0x09: "RubyBase",
+        0x0A: "RubyTextStart",
+        0x0B: "RubyTextEnd",
+        0x03FF: "End"
+    }
+    
+    def __init__(self, filename, font_data):
+        self.filename = filename
+        self.font_data = font_data
+        self.raw_data = None
+        self.magic = None
+        self.version = None
+        self.count = None
+        self.text_offset = None
+        self.strings = []
+        self.current_string = ""
+        
+    def parse(self):
+        """Parse the MSB file."""
+        try:
+            with open(self.filename, 'rb') as file:
+                self.raw_data = file.read()
+                
+            # Parse header (magic, version, count, text_offset)
+            self.magic = self.raw_data[:4].decode('ascii', errors='ignore')
+            self.version = struct.unpack('<i', self.raw_data[4:8])[0]
+            self.count = struct.unpack('<i', self.raw_data[8:12])[0]
+            self.text_offset = struct.unpack('<i', self.raw_data[12:16])[0]
+            
+            print(f"File: {self.filename}")
+            print(f"Magic: {self.magic}")
+            print(f"Version: {self.version}")
+            print(f"String Count: {self.count}")
+            print(f"Text Offset: {self.text_offset}")
+            
+            # Seek to text_offset and parse the data from there
+            self.parse_text_data()
+                
+            return True
+            
+        except Exception as e:
+            print(f"Error parsing MSB file: {e}")
+            return False
+    
+    def parse_text_data(self):
+        """Parse the text data starting from text_offset."""
+        data = self.raw_data[self.text_offset:]
+        i = 0
+        
+        self.current_string = ""
+        
+        while i < len(data):
+            # Get the current byte
+            current_byte = data[i]
+            
+            # Check if it's a character (high bit set)
+            if current_byte >= 0x80:
+                # Characters are stored as 16-bit big-endian values
+                if i + 1 < len(data):
+                    # Read the next byte
+                    next_byte = data[i + 1]
+                    
+                    # Combine into a 16-bit value (big-endian)
+                    char_code = (current_byte << 8) | next_byte
+                    
+                    # Convert to character using font data
+                    char = hex_to_char(format(char_code, '04x'), self.font_data)
+                    self.current_string += char
+                    
+                    # Move forward 2 bytes
+                    i += 2
+                else:
+                    # Handle case where we're at the end of the file
+                    self.current_string += f"[{current_byte:02X}]"
+                    i += 1
+            else:
+                # It's a command byte
+                if current_byte == 0x03 and i + 1 < len(data) and data[i + 1] == 0xFF:
+                    # Special case for End command (0x03FF)
+                    self.current_string += "[End]"
+                    
+                    # Save the current string and start a new one
+                    if self.current_string:
+                        self.strings.append(self.current_string)
+                        self.current_string = ""
+                    
+                    i += 2
+                else:
+                    # Regular command
+                    cmd_name = self.COMMAND_CODES.get(current_byte, f"Cmd{current_byte:02X}")
+                    self.current_string += f"[{cmd_name}]"
+                    
+                    # Special handling for specific commands
+                    if current_byte == 0x01:  # CharacterName
+                        # This often indicates a new dialogue entry
+                        if self.current_string and len(self.current_string) > len(f"[{cmd_name}]"):
+                            self.strings.append(self.current_string)
+                            self.current_string = f"[{cmd_name}]"
+                    
+                    i += 1
+        
+        # Add the last string if there is one
+        if self.current_string:
+            self.strings.append(self.current_string)
+    
+    def save_txt(self, output_file=None):
+        """Save decoded strings to a text file."""
+        if not output_file:
+            output_file = os.path.splitext(self.filename)[0] + ".txt"
+            
+        try:
+            with open(output_file, 'w', encoding='utf-8') as file:
+                file.write(f"# Extracted by msb2txt\n")
+                file.write(f"# Copyright (c) 2025 Tommy Lau <tommy.lhg@gmail.com>\n\n")
+                
+                for i, string in enumerate(self.strings):
+                    file.write(f"[{i}] {string}\n")
+                    
+            print(f"Decoded text saved to {output_file}")
+            return True
+        except Exception as e:
+            print(f"Error saving text file: {e}")
+            return False
+
 def main():
+    # Print banner if no arguments provided
+    if len(sys.argv) == 1:
+        print_banner()
+        sys.exit(0)
+
+    # Set up argument parser
+    parser = argparse.ArgumentParser(
+        description='MSB text extraction tool for Mages engine games',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  python msb2txt.py game.msb                      # Basic usage
+  python msb2txt.py -o output.txt game.msb        # Specify output file
+  python msb2txt.py -f custom_font.txt game.msb   # Use custom font data
+
+Copyright (c) 2025 Tommy Lau <tommy.lhg@gmail.com>
+        """
+    )
+    
+    parser.add_argument('-f', '--font', default='font.txt', 
+                        help='Font data file (default: font.txt)')
+    parser.add_argument('-o', '--output', 
+                        help='Output text file (default: same as input with .txt extension)')
+    parser.add_argument('input_file', 
+                        help='Input MSB file to parse')
+    
+    args = parser.parse_args()
+    
     try:
         # Read and process font data
-        font_data = read_font_data('font.txt')
-        print(f"Font data loaded. Total characters: {len(font_data)}")
+        font_data = read_font_data(args.font)
+        print(f"Font data loaded with {len(font_data)} characters.")
         
-        # Get user input
-        while True:
-            hex_input = input("Enter hex values (e.g., '80 D8 80 E3') or 'q' to quit: ")
+        # Parse MSB file
+        parser = MsbParser(args.input_file, font_data)
+        if parser.parse():
+            parser.save_txt(args.output)
             
-            if hex_input.lower() == 'q':
-                break
-                
-            # Remove all spaces and check if input length is valid
-            cleaned_input = hex_input.replace(" ", "")
-            if len(cleaned_input) % 2 != 0:
-                print("Error: Input length must be divisible by 2")
-                continue
-                
-            # Process input in pairs of 2 characters (1 byte)
-            result = ""
-            hex_pairs = []
-            
-            for i in range(0, len(cleaned_input), 4):
-                if i+3 < len(cleaned_input):
-                    # Take 4 characters (2 bytes) to form a hex value
-                    hex_pair = cleaned_input[i:i+4]
-                    hex_value = "0x" + hex_pair
-                    hex_pairs.append(hex_value)
-                    
-                    # Convert to integer and map to character
-                    try:
-                        char_result = hex_to_char(hex_pair, font_data)
-                        result += char_result
-                    except Exception as e:
-                        print(f"Error processing {hex_value}: {e}")
-            
-            # Print the hex pairs and the result
-            print(f"Processed hex pairs: {', '.join(hex_pairs)}")
-            print(f"Mapped result: {result}")
-            
-    except FileNotFoundError:
-        print("Error: font.txt file not found")
+    except FileNotFoundError as e:
+        print(f"Error: {e}")
+        return 1
     except Exception as e:
         print(f"An error occurred: {e}")
+        return 1
+    
+    return 0
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
