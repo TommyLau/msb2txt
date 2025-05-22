@@ -26,7 +26,8 @@ python msb2txt.py --ftcm path/to/file.msb
 
 Optional arguments:
 ```
--f, --font     Specify a custom font data file (default: font.txt)
+-f, --font     Specify a custom font data file
+               (defaults: font_ftv1_2.txt for FTV1/FTV2, font_gl.txt for FTCM)
 -o, --output   Specify a custom output file (default: same name as input with .txt extension)
 -n, --name     Specify a custom player name file (default: name.txt)
 --ftcm         Use 32-bit mode for FTCM
@@ -71,7 +72,8 @@ Extraction complete!
 
 - `msb2txt.py`: Python script that parses MSB files and extracts text using the font data
 - `mpk_extractor.py`: Python script that extracts files from MPK archives
-- `font.txt`: Character set data extracted from the original "Famicom Detective Club" game from Nintendo Switch. This file contains the complete character set used in the game, including Japanese characters, ASCII symbols, and various special characters.
+- `font_ftv1_2.txt`: Character set data extracted from "Famicom Detective Club: The Missing Heir" and "Famicom Detective Club: The Girl Who Stands Behind" from Nintendo Switch. This file contains the complete character set used in the games, including Japanese characters, ASCII symbols, and various special characters.
+- `font_gl.txt`: Character set data extracted from "Famicom Detective Club: Emio – The Smiling Man" from Nintendo Switch. This file contains the complete character set used in the game, including Japanese characters, ASCII symbols, and various special characters.
 - `name.txt`: Player name file containing the player's surname and given name, separated by a space. This is used to replace player name commands in the text.
 
 ## Player Names

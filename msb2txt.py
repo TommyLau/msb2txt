@@ -11,6 +11,24 @@ import struct
 import os
 import sys
 
+def get_script_dir():
+    """Get the directory where the script is located."""
+    return os.path.dirname(os.path.abspath(__file__))
+
+def find_font_file(font_name):
+    """Find font file in script directory first, then current directory."""
+    # Try script directory first
+    script_dir = get_script_dir()
+    script_font_path = os.path.join(script_dir, font_name)
+    if os.path.isfile(script_font_path):
+        return script_font_path
+    
+    # Try current directory
+    if os.path.isfile(font_name):
+        return font_name
+        
+    raise FileNotFoundError(f"Font file '{font_name}' not found in script directory ({script_dir}) or current directory")
+
 def print_banner():
     """Print a friendly banner with usage information."""
     banner = """
@@ -27,12 +45,16 @@ def print_banner():
       python msb2txt.py path/to/file.msb
     
     Options:
-      -f, --font FILE    Specify a custom font data file (default: font.txt)
+      -f, --font FILE    Specify a custom font data file
+                        (defaults: font_ftv1_2.txt for FTV1/FTV2, font_gl.txt for FTCM)
       -o, --output FILE  Specify output file (default: same as input with .txt)
       -h, --help         Show this help message and exit
     
     Example:
-      python msb2txt.py -f custom_font.txt -o dialog.txt game.msb
+      python msb2txt.py game.msb                      # Basic usage (16-bit mode)
+      python msb2txt.py -o output.txt game.msb        # Specify output file
+      python msb2txt.py -f custom_font.txt game.msb   # Use custom font data
+      python msb2txt.py --ftcm game.msb               # Use 32-bit mode for FTCM
       
     Copyright (c) 2025 Tommy Lau <tommy.lhg@gmail.com>
     """
@@ -205,7 +227,6 @@ class MsbParser:
                             
                             # Clear highest bit for 32-bit
                             char_code &= 0x7FFFFFFF
-                            print(f"char_code: {char_code}")
 
                             # Move forward 4 bytes
                             i += 4
@@ -275,22 +296,25 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python msb2txt.py game.msb                      # Basic usage (16-bit mode)
+  python msb2txt.py game.msb                      # Basic usage (16-bit mode, uses font_ftv1_2.txt)
   python msb2txt.py -o output.txt game.msb        # Specify output file
   python msb2txt.py -f custom_font.txt game.msb   # Use custom font data
-  python msb2txt.py --ftcm game.msb               # Use 32-bit mode for FTCM
+  python msb2txt.py --ftcm game.msb               # Use 32-bit mode for FTCM (uses font_gl.txt)
 
 Game Compatibility:
-  FTV1 (default): Famicom Tantei Club: The Missing Heir
-  FTV2 (default): Famicom Tantei Club: The Girl Who Stands Behind
-  FTCM:           Famicom Tantei Club: Emio – The Smiling Man
+  FTV1 (default): Famicom Tantei Club: The Missing Heir (uses font_ftv1_2.txt)
+  FTV2 (default): Famicom Tantei Club: The Girl Who Stands Behind (uses font_ftv1_2.txt)
+  FTCM:           Famicom Tantei Club: Emio – The Smiling Man (uses font_gl.txt)
+
+Note: The font file will be searched for in the script directory first, then the current directory.
+Font files are automatically selected based on game mode unless overridden with -f/--font.
 
 Copyright (c) 2025 Tommy Lau <tommy.lhg@gmail.com>
         """
     )
     
-    parser.add_argument('-f', '--font', default='font.txt', 
-                        help='Font data file (default: font.txt)')
+    parser.add_argument('-f', '--font', 
+                        help='Font data file (overrides default font selection)')
     parser.add_argument('-o', '--output', 
                         help='Output text file (default: same as input with .txt extension)')
     parser.add_argument('-n', '--name', default='name.txt',
@@ -303,8 +327,18 @@ Copyright (c) 2025 Tommy Lau <tommy.lhg@gmail.com>
     args = parser.parse_args()
     
     try:
-        # Read and process font data
-        font_data = read_font_data(args.font)
+        # Determine which font file to use
+        if args.font:
+            # User specified custom font file takes precedence
+            font_name = args.font
+        else:
+            # Use appropriate default font based on mode
+            font_name = 'font_gl.txt' if args.ftcm else 'font_ftv1_2.txt'
+            
+        # Find and read font data
+        font_path = find_font_file(font_name)
+        font_data = read_font_data(font_path)
+        print(f"Font data loaded from {font_path}")
         print(f"Font data loaded with {len(font_data)} characters.")
         print(f"Game: {'FTCM (32-bit)' if args.ftcm else 'FTV1/FTV2 (16-bit)'}")
         
