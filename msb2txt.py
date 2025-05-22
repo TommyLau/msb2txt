@@ -126,6 +126,7 @@ class MsbParser:
         0x09: "RubyBase",
         0x0A: "RubyTextStart",
         0x0B: "RubyTextEnd",
+        0x12: "SetMarginLeft",
         0x18: "InputText",
         0x20: "PlayerSurname",
         0x21: "PlayerGivenName",
@@ -251,6 +252,11 @@ class MsbParser:
                         r, g, b = self.raw_data[i+1:i+4]
                         current_string += f"<#{r:02X}{g:02X}{b:02X}>"
                         i += 4  # Skip command byte and 3 RGB bytes
+                    elif current_byte == 0x12 and i + 2 < len(self.raw_data):
+                        # Handle SetMarginLeft command with RGB values
+                        margin_left = struct.unpack('>H', self.raw_data[i+1:i+3])[0]
+                        current_string += f"<MarginLeft:{margin_left}>"
+                        i += 3  # Skip command byte and 2 RGB bytes
                     elif current_byte == 0x20:
                         # Player surname
                         current_string += self.player_surname

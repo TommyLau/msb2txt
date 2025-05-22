@@ -108,6 +108,7 @@ The script recognizes the following command codes in the MSB files:
 - 0x09: RubyBase - Base text for furigana/ruby annotations
 - 0x0A: RubyTextStart - Start of ruby text
 - 0x0B: RubyTextEnd - End of ruby text
+- 0x12: SetMarginLeft - Sets the left margin for text (format: <MarginLeft:value>, where value is a 16-bit number)
 - 0x18: InputText - Indicates text input by the player
 - 0x20: PlayerSurname - Replaced with the player's surname from name.txt
 - 0x21: PlayerGivenName - Replaced with the player's given name from name.txt
