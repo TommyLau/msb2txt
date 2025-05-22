@@ -2,15 +2,15 @@
 
 A tool for extracting and converting text data from MSB files from Mages engine games, with specific support for the "Famicom Detective Club" game from Nintendo Switch.
 
-## About
+## Tools
 
-This repository contains tools for working with MSB file formats from Nintendo systems. The primary tool `msb2txt.py` parses MSB files and extracts the text content using the game's character set.
+### 1. MSB Text Extractor (msb2txt.py)
 
-## Usage
+A Python script that parses MSB files and extracts the text content using the game's character set.
 
-Run the script with Python:
+#### Usage
 
-```
+```bash
 python msb2txt.py path/to/file.msb
 ```
 
@@ -22,13 +22,44 @@ Optional arguments:
 ```
 
 Example:
-```
+```bash
 python msb2txt.py --font custom_font.txt --output dialog.txt --name player.txt game/script/scene01.msb
+```
+
+### 2. MPK File Extractor (mpk_extractor.py)
+
+A Python script to extract files from Mages Package (MPK) archives. The tool reads the entire MPK file into memory for faster extraction and creates a directory named after the MPK file to store extracted contents.
+
+⚠️ **Note**: Currently only supports uncompressed files. Compressed files will be extracted as-is without decompression.
+
+#### Usage
+
+```bash
+python mpk_extractor.py your_file.mpk
+```
+
+This will:
+1. Create a directory named after your MPK file (e.g., `mes00` for `mes00.mpk`)
+2. Extract all files maintaining their original paths
+3. Show compression status for each file
+
+Example output:
+```
+Reading MPK file: mes00.mpk
+Loaded 1,234,567 bytes into memory
+MPK Version: 2.0
+Found 10 files
+Files will be extracted to: mes00/
+  file1.txt (uncompressed)
+  file2.dat (compressed)
+Extracting files...
+Extraction complete!
 ```
 
 ## Files
 
 - `msb2txt.py`: Python script that parses MSB files and extracts text using the font data
+- `mpk_extractor.py`: Python script that extracts files from MPK archives
 - `font.txt`: Character set data extracted from the original "Famicom Detective Club" game from Nintendo Switch. This file contains the complete character set used in the game, including Japanese characters, ASCII symbols, and various special characters.
 - `name.txt`: Player name file containing the player's surname and given name, separated by a space. This is used to replace player name commands in the text.
 
