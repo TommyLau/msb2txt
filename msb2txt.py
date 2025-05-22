@@ -125,6 +125,12 @@ def hex_to_char(index, font_data):
         tuple: (character, success) where character is the converted character or error message,
                and success is a boolean indicating whether the conversion succeeded.
     """
+
+    # For English version, 0x3F is a space character
+    if index == 0x3F:
+        # Return a space character
+        return (" ", True)
+
     try:
         # Check if index is valid
         if 0 <= index < len(font_data):
