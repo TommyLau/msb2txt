@@ -72,7 +72,12 @@ def read_player_name(filename="name.txt"):
         return "", ""
 
 def hex_to_char(hex_input, font_data):
-    """Convert hex input to corresponding character in font data."""
+    """Convert hex input to corresponding character in font data.
+    
+    Returns:
+        tuple: (character, success) where character is the converted character or error message,
+               and success is a boolean indicating whether the conversion succeeded.
+    """
     try:
         # Convert hex string to integer
         hex_value = int(hex_input, 16)
@@ -82,25 +87,28 @@ def hex_to_char(hex_input, font_data):
         
         # Check if index is valid
         if 0 <= index < len(font_data):
-            return font_data[index]
+            return (font_data[index], True)
         else:
-            return f"Error: Index {index} out of range (0-{len(font_data)-1})"
+            return (f"Error: Index {index} out of range (0-{len(font_data)-1})", False)
     except ValueError:
-        return "Error: Invalid hexadecimal input"
+        return ("Error: Invalid hexadecimal input", False)
 
 class MsbParser:
     """Parser for MSB files from Mages engine."""
     
     # Define command codes
     COMMAND_CODES = {
+        0x00: "LineBreak",
         0x01: "CharacterName",
-        0x02: "DialogueLine",
+        0x02: "LineStart",
+        0x03: "LineEnd",
         0x09: "RubyBase",
         0x0A: "RubyTextStart",
         0x0B: "RubyTextEnd",
+        0x18: "InputText",
         0x20: "PlayerSurname",
         0x21: "PlayerGivenName",
-        0x03FF: "End"
+        0xFF: "StringEnd"
     }
     
     def __init__(self, filename, font_data, name_file="name.txt"):
@@ -156,7 +164,7 @@ class MsbParser:
             current_byte = data[i]
             
             # Check if it's a character (high bit set)
-            if current_byte >= 0x80:
+            if current_byte >= 0x80 and current_byte != 0xFF:
                 # Characters are stored as 16-bit big-endian values
                 if i + 1 < len(data):
                     # Read the next byte
@@ -166,8 +174,14 @@ class MsbParser:
                     char_code = (current_byte << 8) | next_byte
                     
                     # Convert to character using font data
-                    char = hex_to_char(format(char_code, '04x'), self.font_data)
-                    self.current_string += char
+                    char, success = hex_to_char(format(char_code, '04x'), self.font_data)
+                    if success:
+                        self.current_string += char
+                    else:
+                        # If character conversion failed, add the hex code and show more context
+                        print(f"Failed to convert character at offset {i}: {char_code:04X}")
+                        print(f"Following 10 bytes: {' '.join([f'{b:02X}' for b in data[i:i+10]])}")
+                        self.current_string += f"[{char_code:04X}]"
                     
                     # Move forward 2 bytes
                     i += 2
@@ -177,16 +191,13 @@ class MsbParser:
                     i += 1
             else:
                 # It's a command byte
-                if current_byte == 0x03 and i + 1 < len(data) and data[i + 1] == 0xFF:
-                    # Special case for End command (0x03FF)
-                    self.current_string += "[End]"
-                    
+                if current_byte == 0xFF:
                     # Save the current string and start a new one
                     if self.current_string:
                         self.strings.append(self.current_string)
                         self.current_string = ""
                     
-                    i += 2
+                    i += 1
                 elif current_byte == 0x20:
                     # Player surname
                     self.current_string += self.player_surname

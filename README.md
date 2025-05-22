@@ -58,14 +58,17 @@ The script extracts text from MSB files by:
 
 The script recognizes the following command codes in the MSB files:
 
+- 0x00: LineBreak - Inserts a newline character
 - 0x01: CharacterName - Indicates the speaking character's name
-- 0x02: DialogueLine - Indicates a line of dialogue
+- 0x02: LineStart - Marks the start of a new line of text
+- 0x03: LineEnd - Marks the end of a line of text
 - 0x09: RubyBase - Base text for furigana/ruby annotations
 - 0x0A: RubyTextStart - Start of ruby text
 - 0x0B: RubyTextEnd - End of ruby text
+- 0x18: InputText - Indicates text input by the player
 - 0x20: PlayerSurname - Replaced with the player's surname from name.txt
 - 0x21: PlayerGivenName - Replaced with the player's given name from name.txt
-- 0x03FF: End - End of text segment
+- 0xFF: StringEnd - Marks the end of a string
 
 ## Note
 
