@@ -150,13 +150,19 @@ class MsbParser:
         0x02: "LineStart",
         0x03: "LineEnd",
         0x04: "SetColor",
+        0x05: "SelectCharacter",
         0x09: "RubyBase",
         0x0A: "RubyTextStart",
         0x0B: "RubyTextEnd",
+        0x0E: "PrintInParallel",
+        0x0F: "PrintInCenter",
+        0x11: "SetMarginTop",
         0x12: "SetMarginLeft",
-        0x18: "InputText",
+        0x18: "InputOrSelect",
+        0x19: "AutoForward",
         0x20: "PlayerSurname",
         0x21: "PlayerGivenName",
+        0x35: "SlowText",
         0xFF: "StringEnd"
     }
 

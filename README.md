@@ -124,13 +124,19 @@ The script recognizes the following command codes in the MSB files:
 - 0x02: LineStart - Marks the start of a new line of text
 - 0x03: LineEnd - Marks the end of a line of text
 - 0x04: SetColor - Sets text color (format: <#RRGGBB>, where RR=Red, GG=Green, BB=Blue)
+- 0x05: SelectCharacter - Character selection command
 - 0x09: RubyBase - Base text for furigana/ruby annotations
 - 0x0A: RubyTextStart - Start of ruby text
 - 0x0B: RubyTextEnd - End of ruby text
+- 0x0E: PrintInParallel - Print text in parallel mode
+- 0x0F: PrintInCenter - Print text in center alignment
+- 0x11: SetMarginTop - Sets the top margin for text
 - 0x12: SetMarginLeft - Sets the left margin for text (format: <MarginLeft:value>, where value is a 16-bit number)
-- 0x18: InputText - Indicates text input by the player
+- 0x18: InputOrSelect - Indicates text input by the player or selection option
+- 0x19: AutoForward - Automatic text advancement
 - 0x20: PlayerSurname - Replaced with the player's surname from name.txt
 - 0x21: PlayerGivenName - Replaced with the player's given name from name.txt
+- 0x35: SlowText - Text with slow/emphasized rendering
 - 0xFF: StringEnd - Marks the end of a string
 
 ## File Search Behavior
