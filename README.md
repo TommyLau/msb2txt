@@ -68,6 +68,25 @@ Extracting files...
 Extraction complete!
 ```
 
+## Nintendo Switch Opus Audio Decoding
+
+For extracting and converting Nintendo Switch game audio files (including Famicom Detective Club), you can use the [vgmstream](https://github.com/vgmstream/vgmstream) library. This powerful audio decoder supports Nintendo's proprietary Opus format used in Switch games.
+
+vgmstream can handle:
+- Nintendo Switch private Opus files (.lopus, .opus)
+- Various other game audio formats and codecs
+- Looped background music with smooth transitions
+- Multiple subsongs within a single file
+
+The library includes detailed format implementation for Nintendo Switch Opus files, providing accurate decoding of the proprietary audio streams found in games like the Famicom Detective Club series.
+
+To use vgmstream for Nintendo Switch audio:
+1. Download the latest build from [vgmstream.org](https://vgmstream.org)
+2. Use the command-line tool or install the appropriate plugin for your audio player
+3. Simply drag and drop your game audio files to convert them to standard formats
+
+For technical details about the Nintendo Switch Opus format implementation, see the [opus.c source code](https://github.com/vgmstream/vgmstream/blob/master/src/meta/opus.c) in the vgmstream repository.
+
 ## Files
 
 - `msb2txt.py`: Python script that parses MSB files and extracts text using the font data
